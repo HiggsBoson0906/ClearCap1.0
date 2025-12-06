@@ -668,13 +668,7 @@ function ClearCapApp() {
             <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
               Meet Our <span className="gradient-text">Team</span>
             </h2>
-            <p className="text-2xl font-semibold text-accent mb-8">
-              Trailblazers
-            </p>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Passionate developers and accessibility advocates building
-              technology that makes the world more inclusive
-            </p>
+            <img src="./assets/team.png" className="flex justify-center align-middle mx-auto" alt="Our Team" />
           </div>
         </div>
       </section>
