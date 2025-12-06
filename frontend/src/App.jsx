@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from "react";
 import "./global.css";
-import SplashCursor from './components/SplashCursor'
+import SplashCursor from "./components/SplashCursor";
 
- import TiltedCard from "./components/TiltedCard";
+import TiltedCard from "./components/TiltedCard";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { ChevronDown, Zap, Headphones, Volume2, Radius } from "lucide-react";
-
+import { ChevronDown, Zap, Headphones } from "lucide-react";
 import { io } from "socket.io-client";
 
 import YouTubePlayerPane from "./components/YouTubePlayerPane";
 
 // ⭐ BACKEND BASE URL ⭐
-const API_BASE = "http://localhost:5000";
+// In dev: VITE_API_URL=http://localhost:5000
+// In prod (Vercel): VITE_API_URL=https://your-backend.onrender.com
+const API_BASE =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 // short code → BCP-47 map
 const LANG_MAP = {
@@ -27,7 +29,9 @@ const LANG_MAP = {
 
 function ClearCapApp() {
   // UI state
-  const [videoUrl, setVideoUrl] = useState("https://www.youtube.com/watch?v=KPD8C7c6P1w");
+  const [videoUrl, setVideoUrl] = useState(
+    "https://www.youtube.com/watch?v=KPD8C7c6P1w"
+  );
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedCaptionLanguage, setSelectedCaptionLanguage] =
     useState("en");
@@ -41,7 +45,7 @@ function ClearCapApp() {
   // Captions + timing
   const [currentCaption, setCurrentCaption] = useState(null);
   const [captions, setCaptions] = useState([]);
-  const [videoTime, setVideoTime] = useState(0); // 👈 current video time in seconds
+  const [videoTime, setVideoTime] = useState(0); // current video time in seconds
 
   const handleDemoClick = () => {
     const demoSection = document.getElementById("demo");
@@ -88,6 +92,7 @@ function ClearCapApp() {
         // 2) Connect socket.io and register session
         const s = io(API_BASE, {
           transports: ["websocket"],
+          withCredentials: true,
         });
 
         s.on("connect", () => {
@@ -113,7 +118,6 @@ function ClearCapApp() {
 
           const normalized = { ...msg, start, end };
 
-          // ❗ Don't set currentCaption here. Just store it.
           setCaptions((prev) => {
             const next = [...prev, normalized];
             // sort by start time so we can search cleanly
@@ -141,7 +145,7 @@ function ClearCapApp() {
     };
   }, []);
 
-  // 🔁 Sync caption to current video time
+  // Sync caption to current video time
   useEffect(() => {
     if (!captions.length) {
       setCurrentCaption(null);
@@ -150,17 +154,12 @@ function ClearCapApp() {
 
     const t = videoTime;
 
-    // Find caption whose [start, end) contains t
     let active =
       captions.find(
         (c) =>
-          c.start != null &&
-          c.end != null &&
-          c.start <= t &&
-          t < c.end
+          c.start != null && c.end != null && c.start <= t && t < c.end
       ) || null;
 
-    // If none exactly matches, optionally show the last one before t
     if (!active) {
       const before = captions
         .filter((c) => c.start != null && c.start <= t)
