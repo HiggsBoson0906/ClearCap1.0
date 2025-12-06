@@ -1,19 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
 /* Optional fonts */
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+body {
+  background-size: 400% 400%;
+  animation: gradient 10s ease infinite;
+  height: 100vh;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 60%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+
 
 /* === Base === */
 body {
   @apply bg-slate-950 text-slate-100;
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background-image: radial-gradient(circle at 0% 0%, #1f2937 0, transparent 55%),
-    radial-gradient(circle at 100% 0%, #4b1d65 0, transparent 55%),
-    radial-gradient(circle at 50% 100%, #0f172a 0, #020617 65%);
+  background-image: radial-gradient(circle at 0% 0%, #1c002b 0, transparent 85%),
+    radial-gradient(circle at 100% 0%, #300050 0, transparent 85%),
+    radial-gradient(circle at 50% 100%, #100018 0, #000000 85%);
   background-attachment: fixed;
 }
 

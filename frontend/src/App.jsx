@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { createRoot } from "react-dom/client";
 import "./global.css";
+import SplashCursor from './components/SplashCursor'
 
+ import TiltedCard from "./components/TiltedCard";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { ChevronDown, Zap, Headphones } from "lucide-react";
+import { ChevronDown, Zap, Headphones, Volume2, Radius } from "lucide-react";
+
 import { io } from "socket.io-client";
 
-// 🔁 Adjust this import to wherever your YouTubePlayerPane lives
 import YouTubePlayerPane from "./components/YouTubePlayerPane";
+
+// ⭐ BACKEND BASE URL ⭐
+const API_BASE = "http://localhost:5000";
 
 // short code → BCP-47 map
 const LANG_MAP = {
@@ -23,7 +27,7 @@ const LANG_MAP = {
 
 function ClearCapApp() {
   // UI state
-  const [videoUrl, setVideoUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("https://www.youtube.com/watch?v=KPD8C7c6P1w");
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedCaptionLanguage, setSelectedCaptionLanguage] =
     useState("en");
@@ -34,14 +38,22 @@ function ClearCapApp() {
   const [ytStatus, setYtStatus] = useState("");
   const [starting, setStarting] = useState(false);
 
-  // Captions
+  // Captions + timing
   const [currentCaption, setCurrentCaption] = useState(null);
   const [captions, setCaptions] = useState([]);
+  const [videoTime, setVideoTime] = useState(0); // 👈 current video time in seconds
 
   const handleDemoClick = () => {
     const demoSection = document.getElementById("demo");
     demoSection?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Reset captions when URL changes
+  useEffect(() => {
+    setVideoTime(0);
+    setCurrentCaption(null);
+    setCaptions([]);
+  }, [videoUrl]);
 
   // Auto-create session + socket on mount
   useEffect(() => {
@@ -49,8 +61,9 @@ function ClearCapApp() {
 
     const setup = async () => {
       try {
-        // 1) Create session via backend
-        const res = await fetch("/api/session", {
+        console.log("👉 Creating session at:", `${API_BASE}/api/session`);
+
+        const res = await fetch(`${API_BASE}/api/session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -60,32 +73,35 @@ function ClearCapApp() {
         });
 
         if (!res.ok) {
-          console.error("Failed to create session", await res.text());
-          setYtStatus("Failed to create session");
+          const text = await res.text();
+          console.error("❌ Failed to create session", res.status, text);
+          setYtStatus(`Failed to create session (${res.status})`);
           return;
         }
 
         const data = await res.json();
+        console.log("✅ Session created:", data);
+
         const newSessionId = data.sessionId;
         setSessionId(newSessionId);
 
         // 2) Connect socket.io and register session
-        const s = io("/", {
+        const s = io(API_BASE, {
           transports: ["websocket"],
         });
 
         s.on("connect", () => {
-          console.log("Socket connected:", s.id);
+          console.log("🔌 Socket connected:", s.id);
           s.emit("register_session", newSessionId);
         });
 
         s.on("disconnect", () => {
-          console.log("Socket disconnected");
+          console.log("🔌 Socket disconnected");
         });
 
         s.on("caption_final", (msg) => {
-          console.log("caption_final:", msg);
-          // normalize timing
+          console.log("📝 caption_final:", msg);
+
           const start =
             typeof msg.start === "number"
               ? msg.start
@@ -96,14 +112,24 @@ function ClearCapApp() {
               : msg.timing?.end ?? null;
 
           const normalized = { ...msg, start, end };
-          setCurrentCaption(normalized);
-          setCaptions((prev) => [normalized, ...prev]);
+
+          // ❗ Don't set currentCaption here. Just store it.
+          setCaptions((prev) => {
+            const next = [...prev, normalized];
+            // sort by start time so we can search cleanly
+            next.sort((a, b) => {
+              const sa = a.start ?? 0;
+              const sb = b.start ?? 0;
+              return sa - sb;
+            });
+            return next;
+          });
         });
 
         activeSocket = s;
         setSocket(s);
       } catch (err) {
-        console.error("Error setting up session/socket:", err);
+        console.error("🔥 Error setting up session/socket:", err);
         setYtStatus("Error setting up session/socket");
       }
     };
@@ -111,11 +137,39 @@ function ClearCapApp() {
     setup();
 
     return () => {
-      if (activeSocket) {
-        activeSocket.disconnect();
-      }
+      if (activeSocket) activeSocket.disconnect();
     };
   }, []);
+
+  // 🔁 Sync caption to current video time
+  useEffect(() => {
+    if (!captions.length) {
+      setCurrentCaption(null);
+      return;
+    }
+
+    const t = videoTime;
+
+    // Find caption whose [start, end) contains t
+    let active =
+      captions.find(
+        (c) =>
+          c.start != null &&
+          c.end != null &&
+          c.start <= t &&
+          t < c.end
+      ) || null;
+
+    // If none exactly matches, optionally show the last one before t
+    if (!active) {
+      const before = captions
+        .filter((c) => c.start != null && c.start <= t)
+        .sort((a, b) => (b.start ?? 0) - (a.start ?? 0));
+      active = before[0] || null;
+    }
+
+    setCurrentCaption(active);
+  }, [videoTime, captions]);
 
   const handleStart = async () => {
     if (!videoUrl) return;
@@ -132,7 +186,14 @@ function ClearCapApp() {
       const captionLanguageCode =
         LANG_MAP[selectedCaptionLanguage] || "en-IN";
 
-      const res = await fetch("/api/youtube/start", {
+      console.log("👉 Starting YouTube processing:", {
+        url: videoUrl,
+        audioLanguageCode,
+        captionLanguageCode,
+        sessionId,
+      });
+
+      const res = await fetch(`${API_BASE}/api/youtube/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -145,16 +206,17 @@ function ClearCapApp() {
 
       const data = await res.json();
       if (!res.ok) {
-        console.error("YouTube start error:", data);
+        console.error("❌ YouTube start error:", data);
         throw new Error(data.error || "Failed to start YouTube processing");
       }
 
-      console.log("YouTube start response:", data);
+      console.log("✅ YouTube processing started:", data);
+
       setYtStatus(
         `Processing started (ID: ${data.videoSessionId}). Captions will appear as they're ready.`
       );
     } catch (err) {
-      console.error("Error starting YouTube processing:", err);
+      console.error("🔥 Error starting YouTube processing:", err);
       setYtStatus("Failed to start. Check backend logs.");
     } finally {
       setStarting(false);
@@ -162,17 +224,20 @@ function ClearCapApp() {
   };
 
   return (
+    
     <div className="min-h-screen bg-background text-foreground">
+      < SplashCursor />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 ">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <span className="text-xl font-bold bg-gradient-to-r from-accent to-purple-400 bg-clip-text text-transparent">
-                ClearCap
-              </span>
+            <div >
+              
+              <img src="./assets/logo.png" alt="ClearCap Logo" width="100" style={{ borderRadius: "15px" }} />
+
             </div>
+
 
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-8">
@@ -213,12 +278,16 @@ function ClearCapApp() {
             {/* Left Content */}
             <div className="space-y-8">
               <div>
-                <h1 className="text-6xl md:text-7xl lg:text-8xl font-black leading-tight text-white mb-4">
-                  ClearCap
-                </h1>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-accent via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6">
-                  breaking sound barriers
-                </h2>
+                <div>
+                  <h1 className="text-6xl md:text-7xl lg:text-8xl font-black leading-tight bg-gradient-to-r from-white via-purple-200 to-accent bg-clip-text text-transparent mb-4">
+                    ClearCap
+                  </h1>
+
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-accent via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6">
+                    breaking sound barriers
+                  </h2>
+                </div>
+
               </div>
 
               <div className="space-y-4">
@@ -238,18 +307,24 @@ function ClearCapApp() {
                 >
                   START DEMO
                 </button>
-                <button className="button-secondary text-lg">
+                <button className="button-secondary text-lg"
+                  onClick={() => window.open("https://github.com/HiggsBoson0906/ClearCap1.0", "_blank")}>
                   LEARN MORE
                 </button>
               </div>
             </div>
-
-            {/* Right - Decorative */}
-            <div className="hidden md:flex items-center justify-center">
-              <div className="relative w-full h-96">
-                <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-purple-500/5 to-transparent rounded-3xl glass-card"></div>
-                <div className="absolute -top-8 -right-8 w-64 h-64 bg-gradient-to-br from-accent/30 to-transparent rounded-full blur-2xl"></div>
-              </div>
+            {/* Right Image */}
+            <div className="w-full max-w-md mx-auto">
+              <TiltedCard
+                imageSrc="/assets/hero-image.png"
+                altText="ClearCap - Real-time multilingual, Deaf-friendly captions"
+                containerWidth="100%"
+                containerHeight="400px"
+                imageWidth="100%"
+                imageHeight="400px"
+                showTooltip={false}
+                displayOverlayContent={false} 
+              />
             </div>
           </div>
         </div>
@@ -268,7 +343,7 @@ function ClearCapApp() {
                 real time captions for every Indian language
               </p>
               <p className="text-base md:text-lg text-foreground/80">
-                Supporting 10+ Indian languages with sub-second latency and
+                Supporting 5+ Indian languages with sub-second latency and
                 95%+ accuracy
               </p>
             </div>
@@ -357,12 +432,6 @@ function ClearCapApp() {
                   <option value="hi">Hindi</option>
                   <option value="ta">Tamil</option>
                   <option value="te">Telugu</option>
-                  <option value="mr">Marathi</option>
-                  <option value="bn">Bengali</option>
-                  <option value="gu">Gujarati</option>
-                  <option value="kn">Kannada</option>
-                  <option value="ml">Malayalam</option>
-                  <option value="pa">Punjabi</option>
                 </select>
               </div>
 
@@ -382,12 +451,7 @@ function ClearCapApp() {
                   <option value="hi">Hindi</option>
                   <option value="ta">Tamil</option>
                   <option value="te">Telugu</option>
-                  <option value="mr">Marathi</option>
-                  <option value="bn">Bengali</option>
-                  <option value="gu">Gujarati</option>
-                  <option value="kn">Kannada</option>
-                  <option value="ml">Malayalam</option>
-                  <option value="pa">Punjabi</option>
+                
                 </select>
               </div>
 
@@ -416,56 +480,54 @@ function ClearCapApp() {
           {/* Demo Content Grid */}
           <div className="flex flex-col gap-8">
             {/* Video Player */}
-            <div className="glass-card p-8 rounded-2xl w-full">
+            <div className="glass-card p-8 rounded-2xl w-auto border border-white/10">
               <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                 <span className="text-2xl">📺</span>
                 Video Player
               </h3>
               <div className="aspect-video bg-gradient-to-br from-secondary/50 to-secondary/20 rounded-lg flex items-center justify-center border border-white/10 overflow-hidden">
                 {videoUrl ? (
-                  <YouTubePlayerPane videoUrl={videoUrl} />
+                  <YouTubePlayerPane
+                    videoUrl={videoUrl}
+                    onTimeUpdate={setVideoTime}   // 👈 this line
+                  />
                 ) : (
                   <div className="text-center">
-                    <p className="text-muted-foreground text-lg mb-2">
-                      No Video
-                    </p>
+                    <p className="text-muted-foreground text-lg mb-2">No Video</p>
                     <p className="text-sm text-muted-foreground">
                       Paste a YouTube URL above
                     </p>
                   </div>
                 )}
               </div>
+              <div className="glass-card rounded-lg border border-white/10">
+                {/* Current caption bar */}
+                <div className="min-h-[80px] flex flex-col items-center justify-center text-center mb-4">
+                  {currentCaption ? (
+                    <>
+                      <p className="text-lg md:text-2xl font-semibold text-white mb-2">
+                        {currentCaption.simplified || currentCaption.original}
+                      </p>
+                      {currentCaption.original &&
+                        currentCaption.simplified &&
+                        currentCaption.simplified !==
+                        currentCaption.original && (
+                          <p className="text-sm text-muted-foreground">
+                            Original: {currentCaption.original}
+                          </p>
+                        )}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground text-lg">
+                      No captions yet
+                    </p>
+                  )}
+                </div>
             </div>
           </div>
 
           {/* Live Captions */}
-          <h3 className="text-xl font-bold text-white mt-12 mb-4 flex items-center gap-2">
-            <span className="text-2xl">💬</span>
-            Live Captions
-          </h3>
-          <div className="glass-card p-6 rounded-lg border border-white/10">
-            {/* Current caption bar */}
-            <div className="min-h-[80px] flex flex-col items-center justify-center text-center mb-4">
-              {currentCaption ? (
-                <>
-                  <p className="text-lg md:text-2xl font-semibold text-white mb-2">
-                    {currentCaption.simplified || currentCaption.original}
-                  </p>
-                  {currentCaption.original &&
-                    currentCaption.simplified &&
-                    currentCaption.simplified !==
-                    currentCaption.original && (
-                      <p className="text-sm text-muted-foreground">
-                        Original: {currentCaption.original}
-                      </p>
-                    )}
-                </>
-              ) : (
-                <p className="text-muted-foreground text-lg">
-                  No captions yet
-                </p>
-              )}
-            </div>
+          
 
             {/* History toggle (static for now) */}
             <button className="text-sm text-accent hover:text-accent/80 transition-colors flex items-center gap-2 mx-auto mb-2">

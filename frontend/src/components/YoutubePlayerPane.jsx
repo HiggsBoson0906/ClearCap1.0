@@ -1,72 +1,110 @@
-import React, { useRef } from "react";
-import YouTube from "react-youtube";
+// src/components/YouTubePlayerPane.jsx
+import React, { useEffect, useRef } from "react";
 
-export default function YouTubePlayerPane({ onVideoLoaded, playerRef }) {
-    const extractId = (url) => {
-        try {
-            const u = new URL(url);
+function extractYouTubeId(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtube.com")) {
             return u.searchParams.get("v");
-        } catch {
-            return null;
         }
-    };
+        if (u.hostname.includes("youtu.be")) {
+            return u.pathname.replace("/", "");
+        }
+    } catch (e) {
+        const match = url.match(/v=([^&]+)/);
+        if (match) return match[1];
+    }
+    return null;
+}
 
-    const [videoUrl, setVideoUrl] = React.useState("");
-    const [videoId, setVideoId] = React.useState("");
+export default function YouTubePlayerPane({ videoUrl, onTimeUpdate }) {
+    const containerRef = useRef(null);
+    const playerRef = useRef(null);
+    const intervalRef = useRef(null);
 
-    const handleLoadVideo = () => {
-        const id = extractId(videoUrl);
-        if (!id) return alert("Invalid YouTube URL");
+    const videoId = extractYouTubeId(videoUrl);
 
-        setVideoId(id);
-        onVideoLoaded(videoUrl);
-    };
+    useEffect(() => {
+        if (!videoId || !containerRef.current) return;
 
-    const opts = {
-        playerVars: {
-            autoplay: 0,
-            controls: 1,
-        },
-    };
+        let isMounted = true;
+
+        function createPlayer() {
+            if (!isMounted) return;
+
+            playerRef.current = new window.YT.Player(containerRef.current, {
+                videoId,
+                playerVars: {
+                    controls: 1,
+                },
+                events: {
+                    onReady: () => {
+                        // Poll current time
+                        intervalRef.current = setInterval(() => {
+                            if (!playerRef.current || typeof onTimeUpdate !== "function")
+                                return;
+                            const t = playerRef.current.getCurrentTime();
+                            if (!isNaN(t)) onTimeUpdate(t);
+                        }, 200);
+                    },
+                },
+            });
+        }
+
+        // Load YouTube IFrame API if needed
+        if (!window.YT || !window.YT.Player) {
+            const existingScript = document.getElementById("youtube-iframe-api");
+            if (!existingScript) {
+                const tag = document.createElement("script");
+                tag.id = "youtube-iframe-api";
+                tag.src = "https://www.youtube.com/iframe_api";
+                document.body.appendChild(tag);
+            }
+
+            const prevCallback = window.onYouTubeIframeAPIReady;
+            window.onYouTubeIframeAPIReady = () => {
+                if (typeof prevCallback === "function") prevCallback();
+                createPlayer();
+            };
+        } else {
+            createPlayer();
+        }
+
+        return () => {
+            isMounted = false;
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+            if (playerRef.current && playerRef.current.destroy) {
+                playerRef.current.destroy();
+                playerRef.current = null;
+            }
+        };
+    }, [videoId, onTimeUpdate]);
+
+    if (!videoUrl) {
+        return (
+            <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                Paste a YouTube URL above
+            </div>
+        );
+    }
+
+    if (!videoId) {
+        return (
+            <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                Invalid YouTube URL
+            </div>
+        );
+    }
 
     return (
-        <div style={{ marginBottom: "12px" }}>
-            <input
-                type="text"
-                placeholder="Paste YouTube link"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                style={{
-                    padding: "6px",
-                    width: "70%",
-                    background: "#121212",
-                    color: "#fff",
-                    borderRadius: "6px",
-                    border: "1px solid #444",
-                }}
-            />
-            <button
-                onClick={handleLoadVideo}
-                style={{
-                    padding: "6px 10px",
-                    marginLeft: "8px",
-                    cursor: "pointer",
-                }}
-            >
-                Load Video
-            </button>
-
-            {videoId && (
-                <YouTube
-                    videoId={videoId}
-                    opts={opts}
-                    onReady={(e) => {
-                        // 💥 Critical: store YT player instance
-                        playerRef.current = e.target;
-                    }}
-                    style={{ marginTop: "16px" }}
-                />
-            )}
+        <div className="w-full h-full">
+            {/* YT will replace this div with an <iframe> */}
+            <div ref={containerRef} className="w-full h-full" />
         </div>
     );
 }
+    
