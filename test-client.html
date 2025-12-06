@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>ClearCap WS Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #121212;
+            color: #f5f5f5;
+            padding: 20px;
+        }
+
+        input,
+        button,
+        textarea {
+            margin: 5px 0;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+        }
+
+        .caption {
+            border: 1px solid #444;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+        }
+
+        .original {
+            color: #aaaaaa;
+            font-size: 13px;
+        }
+
+        .simplified {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .meta {
+            font-size: 12px;
+            margin-top: 4px;
+            color: #bbbbbb;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ClearCap WebSocket Test</h1>
+
+    <div>
+        <button id="btnSession">Create Session</button>
+        <span id="sessionInfo"></span>
+    </div>
+
+    <hr />
+
+    <div>
+        <label for="textInput">Fake transcript (pretend ASR output):</label><br />
+        <textarea id="textInput"
+            placeholder="Type a sentence like: Prime Minister Modi is addressing the nation."></textarea><br />
+        <button id="btnSend">Send transcript_final</button>
+
+        <div style="margin-top: 10px;">
+            <button id="btnStartRec">🎙️ Start Recording</button>
+            <button id="btnStopRec" disabled>⏹️ Stop Recording</button>
+            <span id="recStatus"></span>
+        </div>
+    </div>
+
+
+    <h2>Caption Output</h2>
+    <div id="output"></div>
+
+    <!-- Socket.io client from CDN -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        const API_BASE = "http://localhost:5000";
+
+        let sessionId = null;
+        let socket = null;
+
+        const btnSession = document.getElementById("btnSession");
+        const sessionInfo = document.getElementById("sessionInfo");
+        const btnSend = document.getElementById("btnSend");
+        const textInput = document.getElementById("textInput");
+        const output = document.getElementById("output");
+
+        // Create a new session via REST, then connect socket.io
+        btnSession.addEventListener("click", async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/session`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        language: "en-IN",
+                        mode: "text+sign",
+                    }),
+                });
+
+                const data = await res.json();
+                console.log("Session response:", data);
+
+                sessionId = data.sessionId;
+                sessionInfo.textContent = `Session ID: ${sessionId}`;
+
+                // Connect socket.io
+                socket = io(API_BASE, {
+                    transports: ["websocket"], // force WebSocket
+                });
+
+                socket.on("connect", () => {
+                    console.log("Socket connected:", socket.id);
+                });
+
+                socket.on("disconnect", () => {
+                    console.log("Socket disconnected");
+                });
+
+                // Listen for caption_final messages
+                socket.on("caption_final", (msg) => {
+                    console.log("caption_final:", msg);
+                    renderCaption(msg);
+                });
+
+                alert("Session created and socket connected!");
+            } catch (err) {
+                console.error("Error creating session:", err);
+                alert("Failed to create session, check console.");
+            }
+        });
+
+        // Send transcript_final event with the text
+        btnSend.addEventListener("click", () => {
+            if (!socket || !socket.connected) {
+                alert("Socket not connected. Create session first.");
+                return;
+            }
+            if (!sessionId) {
+                alert("No session id. Create session first.");
+                return;
+            }
+
+            const text = textInput.value.trim();
+            if (!text) {
+                alert("Please enter some text.");
+                return;
+            }
+
+            const payload = {
+                sessionId,
+                text,
+            };
+
+            console.log("Sending transcript_final:", payload);
+            socket.emit("transcript_final", payload);
+        });
+        // ---- ASR recording controls ----
+
+        // Start recording from mic
+        btnStartRec.addEventListener("click", async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: "audio/webm" // common default, backend just sees bytes
+                });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    recStatus.textContent = "Uploading to ASR...";
+                    btnStartRec.disabled = false;
+                    btnStopRec.disabled = true;
+
+                    const blob = new Blob(recordedChunks, { type: "audio/webm" });
+                    const formData = new FormData();
+                    formData.append("audio", blob, "recording.webm");
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/asr/transcribe`, {
+                            method: "POST",
+                            body: formData,
+                        });
+
+                        if (!res.ok) {
+                            throw new Error(`ASR HTTP ${res.status}`);
+                        }
+
+                        const data = await res.json();
+                        console.log("ASR response:", data);
+
+                        // Put ASR text into textarea
+                        textInput.value = data.text || "";
+
+                        recStatus.textContent = "ASR complete.";
+
+                        // OPTIONAL: auto-send transcript_final through socket
+                        if (socket && socket.connected && sessionId && data.text) {
+                            const payload = {
+                                sessionId,
+                                text: data.text,
+                            };
+                            console.log("Auto sending transcript_final from ASR:", payload);
+                            socket.emit("transcript_final", payload);
+                        }
+                    } catch (err) {
+                        console.error("Error calling ASR:", err);
+                        recStatus.textContent = "ASR failed. Check console.";
+                    }
+                };
+
+                mediaRecorder.start();
+                recStatus.textContent = "Recording...";
+                btnStartRec.disabled = true;
+                btnStopRec.disabled = false;
+            } catch (err) {
+                console.error("Could not start recording:", err);
+                alert("Mic access failed. Check browser permissions.");
+            }
+        });
+
+        // Stop recording
+        btnStopRec.addEventListener("click", () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                recStatus.textContent = "Processing recording...";
+            }
+        });
+
+
+        function renderCaption(msg) {
+            const div = document.createElement("div");
+            div.className = "caption";
+
+            // apply emotion-based color if present
+            if (msg.color) {
+                div.style.backgroundColor = msg.color;
+            }
+
+
+            const original = document.createElement("div");
+            original.className = "original";
+            original.textContent = "Original: " + msg.original;
+
+            const simplified = document.createElement("div");
+            simplified.className = "simplified";
+            simplified.textContent = "Simplified: " + msg.simplified;
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+
+            const glossText = msg.isl?.gloss?.join(" ") || "";
+            const clipIdsText = msg.isl?.clipIds?.join(", ") || "";
+
+            meta.textContent =
+                `Language: ${msg.language} | Emotion: ${msg.emotion} | ` +
+                `Gloss: ${glossText} | Clips: ${clipIdsText}`;
+
+
+            div.appendChild(original);
+            div.appendChild(simplified);
+            div.appendChild(meta);
+
+            output.prepend(div);
+        }
+        const btnStartRec = document.getElementById("btnStartRec");
+        const btnStopRec = document.getElementById("btnStopRec");
+        const recStatus = document.getElementById("recStatus");
+
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+    </script>
+</body>
+
+</html>
