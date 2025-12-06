@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ChevronDown, Zap, Headphones } from "lucide-react";
 import { io } from "socket.io-client";
 
-import YouTubePlayerPane from "./components/YouTubePlayerPane";
+import YouTubePlayerPane from "./components/YoutubePlayerPane";
 
 // ⭐ BACKEND BASE URL ⭐
 // In dev: VITE_API_URL=http://localhost:5000
