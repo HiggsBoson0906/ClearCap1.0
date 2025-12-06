@@ -427,10 +427,11 @@ function ClearCapApp() {
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                   className="glass-input w-full py-3"
                 >
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                  <option value="ta">Tamil</option>
-                  <option value="te">Telugu</option>
+                  {/* to make options colour black and the background as transparent set the classname*/ }
+                  <option className="text-black" value="en">English</option>
+                  <option className="text-black" value="hi">Hindi</option>
+                  <option className="text-black" value="ta">Tamil</option>
+                  <option className="text-black" value="te">Telugu</option>
                 </select>
               </div>
 
@@ -446,10 +447,10 @@ function ClearCapApp() {
                   }
                   className="glass-input w-full py-3"
                 >
-                  <option value="en">English</option>
-                  <option value="hi">Hindi</option>
-                  <option value="ta">Tamil</option>
-                  <option value="te">Telugu</option>
+                  <option className="text-black" value="en">English</option>
+                  <option className="text-black" value="hi">Hindi</option>
+                  <option className="text-black" value="ta">Tamil</option>
+                  <option className="text-black" value="te">Telugu</option>
                 
                 </select>
               </div>
