@@ -223,7 +223,7 @@ function ClearCapApp() {
   };
 
   return (
-    
+
     <div className="min-h-screen bg-background text-foreground">
       < SplashCursor />
       {/* Navigation */}
@@ -232,7 +232,7 @@ function ClearCapApp() {
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <div >
-              
+
               <img src="./assets/logo.png" alt="ClearCap Logo" width="100" style={{ borderRadius: "15px" }} />
 
             </div>
@@ -322,7 +322,7 @@ function ClearCapApp() {
                 imageWidth="100%"
                 imageHeight="400px"
                 showTooltip={false}
-                displayOverlayContent={false} 
+                displayOverlayContent={false}
               />
             </div>
           </div>
@@ -427,7 +427,7 @@ function ClearCapApp() {
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                   className="glass-input w-full py-3"
                 >
-                  {/* to make options colour black and the background as transparent set the classname*/ }
+                  {/* to make options colour black and the background as transparent set the classname*/}
                   <option className="text-black" value="en">English</option>
                   <option className="text-black" value="hi">Hindi</option>
                   <option className="text-black" value="ta">Tamil</option>
@@ -451,7 +451,7 @@ function ClearCapApp() {
                   <option className="text-black" value="hi">Hindi</option>
                   <option className="text-black" value="ta">Tamil</option>
                   <option className="text-black" value="te">Telugu</option>
-                
+
                 </select>
               </div>
 
@@ -523,11 +523,11 @@ function ClearCapApp() {
                     </p>
                   )}
                 </div>
+              </div>
             </div>
-          </div>
 
-          {/* Live Captions */}
-          
+            {/* Live Captions */}
+
 
             {/* History toggle (static for now) */}
             <button className="text-sm text-accent hover:text-accent/80 transition-colors flex items-center gap-2 mx-auto mb-2">
