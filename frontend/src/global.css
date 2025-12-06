@@ -1,148 +1,59 @@
-/** @import must precede all other statements */
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  /**
-   * Dark Purple Theme
-   * tailwind.config.ts expects the following color variables to be expressed as HSL values.
-   * A different format will require also updating the theme in tailwind.config.ts.
-  */
-  :root {
-    --background: 270 20% 12%;
-    --foreground: 270 15% 92%;
+/* Optional fonts */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");
 
-    --card: 270 25% 18%;
-    --card-foreground: 270 15% 92%;
-
-    --popover: 270 25% 18%;
-    --popover-foreground: 270 15% 92%;
-
-    --primary: 278 85% 55%;
-    --primary-foreground: 270 20% 98%;
-
-    --secondary: 270 25% 28%;
-    --secondary-foreground: 270 15% 92%;
-
-    --muted: 270 15% 35%;
-    --muted-foreground: 270 10% 65%;
-
-    --accent: 278 85% 55%;
-    --accent-foreground: 270 20% 98%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 270 20% 25%;
-    --input: 270 20% 22%;
-    --ring: 278 85% 55%;
-
-    --radius: 0.75rem;
-
-    --sidebar-background: 270 20% 14%;
-
-    --sidebar-foreground: 270 15% 88%;
-
-    --sidebar-primary: 278 85% 55%;
-
-    --sidebar-primary-foreground: 270 20% 98%;
-
-    --sidebar-accent: 270 25% 30%;
-
-    --sidebar-accent-foreground: 270 15% 92%;
-
-    --sidebar-border: 270 20% 25%;
-
-    --sidebar-ring: 278 85% 55%;
-  }
-
-  .dark {
-    --background: 270 20% 12%;
-    --foreground: 270 15% 92%;
-
-    --card: 270 25% 18%;
-    --card-foreground: 270 15% 92%;
-
-    --popover: 270 25% 18%;
-    --popover-foreground: 270 15% 92%;
-
-    --primary: 278 85% 55%;
-    --primary-foreground: 270 20% 98%;
-
-    --secondary: 270 25% 28%;
-    --secondary-foreground: 270 15% 92%;
-
-    --muted: 270 15% 35%;
-    --muted-foreground: 270 10% 65%;
-
-    --accent: 278 85% 55%;
-    --accent-foreground: 270 20% 98%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 270 20% 25%;
-    --input: 270 20% 22%;
-    --ring: 278 85% 55%;
-
-    --sidebar-background: 270 20% 14%;
-    --sidebar-foreground: 270 15% 88%;
-    --sidebar-primary: 278 85% 55%;
-    --sidebar-primary-foreground: 270 20% 98%;
-    --sidebar-accent: 270 25% 30%;
-    --sidebar-accent-foreground: 270 15% 92%;
-    --sidebar-border: 270 20% 25%;
-    --sidebar-ring: 278 85% 55%;
-  }
+/* === Base === */
+body {
+  @apply bg-slate-950 text-slate-100;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background-image: radial-gradient(circle at 0% 0%, #1f2937 0, transparent 55%),
+    radial-gradient(circle at 100% 0%, #4b1d65 0, transparent 55%),
+    radial-gradient(circle at 50% 100%, #0f172a 0, #020617 65%);
+  background-attachment: fixed;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: "Poppins", sans-serif;
-  }
-
-  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  pre,
-  code {
-    overflow-x: auto;
-    white-space: pre;
-  }
-}
-
+/* === Custom utility classes used in your JSX === */
 @layer components {
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
-  }
-
-  .glass-input {
-    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent;
-  }
-
-  .gradient-text {
-    background: linear-gradient(135deg, #d946ef 0%, #a855f7 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .button-primary {
-    @apply px-8 py-3 rounded-full font-semibold text-white bg-accent hover:bg-accent/90 transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-accent/30;
+    @apply inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-semibold text-white bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 shadow-lg shadow-orange-500/30 transition-all duration-200 hover:shadow-xl hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-orange-500;
   }
 
   .button-secondary {
-    @apply px-8 py-3 rounded-full font-semibold text-white bg-secondary hover:bg-secondary/80 transition-all duration-200 border border-white/10;
+    @apply inline-flex items-center justify-center rounded-full px-6 py-3 text-base font-medium text-slate-50 bg-white/5 border border-white/20 backdrop-blur-md transition-all duration-200 hover:bg-white/10 hover:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-orange-500;
   }
+
+  .glass-card {
+    @apply bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl shadow-lg shadow-black/40;
+  }
+
+  .glass-input {
+    @apply w-full rounded-full bg-white/5 border border-slate-600/60 text-slate-50 text-sm md:text-base placeholder:text-slate-400 px-4 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 bg-clip-text text-transparent;
+  }
+}
+
+/* Scrollbar (optional) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.7);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.9);
 }
